@@ -21,7 +21,7 @@ build: vet tidy
 #generate-golden:
 #	go test integration/cli_test.go -update
 
-install: vet tidy test
+install: vet tidy # test
 	go install ${BUILDFLAGS}
 
 vet:
@@ -76,13 +76,13 @@ test: build windows-64 linux-64
 	-rm test/testworkaround
 
 .PHONY: fmt
-fmt: ; $(info $(M) running gofmt…) @ ## Run gofmt on all source files
+fmt: ; $(info $(M) running gofmt) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
 # Misc
 
 .PHONY: clean
-clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
+clean: ; $(info $(M) cleaning)	@ ## Cleanup everything
 	@rm -rf $(BIN)
 	@rm -rf test/tests.* test/coverage.*
 
