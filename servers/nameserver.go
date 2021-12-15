@@ -31,18 +31,29 @@ func parseQuery(m *dns.Msg, requester net.Addr) {
 		if err {
 			return
 		}
+		queryType := dns.TypeToString[q.Qtype]
 		currentTime := time.Now().Format(time.RFC3339)
+
+		depletedUrl := false
+		if exfiltrated == "" {
+			depletedUrl = true
+		}
+
 		message := Message{
 			Type:        "lookup",
 			Url:         q.Name,
+			DepletedUrl: depletedUrl,
 			Exfiltrated: exfiltrated,
+			Protocol:    "dns",
+			Query:       queryType,
 			Time:        currentTime,
 		}
 
 		subscriberListened := MessageToSubscriber(subscriber, message)
 
-		log.Printf("%s LOOKUP for:%s attempt-stealth:%t using:%s (qtype:%d) additional: %s\n",
-			currentTime, requesterIp, !subscriberListened, subscriber, q.Qtype, exfiltrated)
+		//TODO: Remove this - we don't want sensitive data being logged.
+		log.Printf("%s LOOKUP for:%s attempt-stealth:%t using:%s (%s) additional: %s\n",
+			currentTime, requesterIp, !subscriberListened, subscriber, queryType, exfiltrated)
 
 		if !subscriberListened {
 			return
