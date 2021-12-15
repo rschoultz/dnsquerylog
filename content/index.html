@@ -95,7 +95,7 @@
                     <button class="btn btn-outline-info btn-sm" @click="copyUrl(address)">Copy
                     </button>
                     <transition v-if="depletedUrl"  name="fade" :duration="1000">
-                        <button type="button" data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-secondary" title="A DNS lookup has been seen using this address,
+                        <button type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
 and any additional use will likely not work as
 resolvers caches this information.">
                             Depleted
@@ -107,7 +107,7 @@ resolvers caches this information.">
                     <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln1)">Copy
                     </button>
                     <transition v-if="depletedUrl"  name="fade" :duration="1000">
-                        <button type="button" data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-secondary" title="A DNS lookup has been seen using this address,
+                        <button type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
 and any additional use will likely not work as
 resolvers caches this information.">
                             Depleted
