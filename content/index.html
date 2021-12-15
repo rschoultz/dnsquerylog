@@ -29,17 +29,18 @@
     </p>
 
     <div class="alert alert-info" role="alert">
-        The URL produced by this tool will make it possible to detect whether your servers are trying to look up the
-        name. The detected lookups that you trigger are sent only to this page over a TLS websocket, and are not published otherwise.
+        Using addresses produced by this tool will make it possible to detect whether your servers are trying to look up the
+        name. The addresses that you create are unique, and information about attempts of using the address
+        is only shared with this page, while you have this window open.
     </div>
 
     <div>
         Usage:
-        <ul>
-            <li>Copy one of the generated strings, and paste it into an application you would like to validate.</li>
+        <ol>
+            <li>Copy one of the generated strings, and paste it into an application you would like to test.</li>
             <li>If you see output in the table, it means there is high likelihood of vulnerabilities.</li>
             <li>Additional information, retrieved from your service. This is only possible if you modify the generated address further, though.</li>
-        </ul>
+        </ol>
     </div>
     <div class="alert alert-warning" role="alert">
         <b>Conditional use</b>. You may only use this tool with systems which you have explicit permission to test.
