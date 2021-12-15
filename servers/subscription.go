@@ -8,8 +8,11 @@ import (
 type Message struct {
 	Type        string
 	Url         string
+	DepletedUrl bool
 	Exfiltrated string
+	Query       string
 	Time        string
+	Protocol    string
 }
 
 var things = make(map[string]chan string)
