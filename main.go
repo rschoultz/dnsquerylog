@@ -1,12 +1,15 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"os"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/urfave/cli/v2"
@@ -29,22 +32,32 @@ var soaRecords = map[string]string{
 	"check.dnsquery.tech.": "n2.dnsquery.tech. hostmaster.dnsquery.tech. 1 21600 3600 259200 300",
 }
 
+//go:embed content/index.html
+var indexhtml string
+
+var homeTemplate = template.Must(template.New("").Parse(indexhtml))
+
 func parseQuery(m *dns.Msg, requester net.Addr) {
 	for _, q := range m.Question {
-		log.Printf("Query: %s of type %d (via %s) - details: %s\n", q.Name, q.Qtype, requester.String(), q.String())
-		////clients.SendMessage(q.Name)
-
+		requesterIp := requester.String()
 		exfiltrated, subscriber, err := extractUrlParts(q.Name)
 		if err {
 			return
 		}
+		currentTime := time.Now().Format(time.RFC3339)
+		message := servers.Message{
+			Type:        "lookup",
+			Url:         q.Name,
+			Exfiltrated: exfiltrated,
+			Time:        currentTime,
+		}
 
-		log.Printf("Substrings of query 1: %s and 2: %s", exfiltrated, subscriber)
+		subscriberListened := servers.MessageToSubscriber(subscriber, message)
 
-		subscriberListened := servers.MessageToSubscriber(subscriber, q.Name)
+		log.Printf("%s LOOKUP for:%s attempt-stealth:%t using:%s (qtype:%d) additional: %s\n",
+			currentTime, requesterIp, !subscriberListened, subscriber, q.Qtype, exfiltrated)
 
 		if !subscriberListened {
-			log.Printf("Should respond with nothing here, noone is watching results.")
 			return
 		}
 
@@ -109,9 +122,9 @@ func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 }
 
-func main() {
+var isLocal = false
 
-	var nsPort string
+func main() {
 
 	app := &cli.App{}
 	app.Copyright = "Copyright 2021, Worldline"
@@ -119,37 +132,12 @@ func main() {
 	app.Usage = ""
 	app.HideVersion = true
 	app.EnableBashCompletion = true
-	key := ""
-	addr := ""
-	cert := ""
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name:        "port",
-			Aliases:     []string{"p"},
-			Value:       "53",
-			Usage:       "port number to listen on.",
-			Destination: &nsPort,
-			Required:    false,
-		},
-		&cli.StringFlag{
-			Name:        "addr",
-			Value:       ":443",
-			Usage:       "HTTP/2 Address to listen on.",
-			Destination: &addr,
-			Required:    false,
-		},
-		&cli.StringFlag{
-			Name:        "cert",
-			Value:       "53",
-			Usage:       "Certificate for HTTP/2.",
-			Destination: &cert,
-			Required:    false,
-		},
-		&cli.StringFlag{
-			Name:        "key",
-			Value:       "53",
-			Usage:       "Key for HTTP/2.",
-			Destination: &key,
+		&cli.BoolFlag{
+			Name:        "local",
+			Value:       false,
+			Usage:       "Local server for testing.",
+			Destination: &isLocal,
 			Required:    false,
 		},
 	}
@@ -159,26 +147,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// start server
-
-	//	log.Printf("Starting HTTP2 server.\n")
-	//	myh2.My_http2(":443", "cert.pem", "key.pem")
-
 	wg := new(sync.WaitGroup)
 	wg.Add(3)
 
 	dns.HandleFunc("dnsquery.tech.", handleDnsRequest)
 
 	go func() {
-		err = ServeUdpNs(nsPort, err)
+		err = ServeUdpNs("53", err)
 	}()
 
 	go func() {
-		serveTcpNs(nsPort, err)
+		serveTcpNs("53", err)
 	}()
 
 	go func() {
-		servers.ServeWebServers()
+		servers.ServeWebServers(isLocal, homeTemplate)
 	}()
 
 	wg.Wait()
