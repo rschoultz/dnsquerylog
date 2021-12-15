@@ -1,6 +1,16 @@
 package servers
 
-import "log"
+import (
+	"encoding/json"
+	"log"
+)
+
+type Message struct {
+	Type        string
+	Url         string
+	Exfiltrated string
+	Time        string
+}
 
 var things = make(map[string]chan string)
 
@@ -15,13 +25,16 @@ func RemoveSubscriber(key string) {
 	delete(things, key)
 }
 
-func MessageToSubscriber(key string, msg string) bool {
+func MessageToSubscriber(key string, message Message) bool {
+
+	msg, _ := json.Marshal(message)
+
 	select {
-	case things[key] <- msg:
-		log.Printf("Message sent for key:%s", key)
+	case things[key] <- string(msg):
+		// log.Printf("Message sent for key:%s", key)
 		return true
 	default:
-		log.Printf("No message sent for key: %s", key)
+		// log.Printf("No message sent for key: %s", key)
 		return false
 	}
 }
