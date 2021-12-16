@@ -48,7 +48,7 @@
             Usage:
             <ol>
                 <li>Press <span class="badge bg-light text-dark">Get Address</span> button below.</li>
-                <li>Press <span class="badge bg-light text-dark">Copy</span> on the bottom text</li>
+                <li>Press <span class="badge bg-light text-dark">Copy payload</span> on the bottom text</li>
                 <li>Paste the text into an application field you would like to test.</li>
                 <li>If you see output in the table, it means there is high likelihood of vulnerabilities.</li>
             </ol>
@@ -95,7 +95,7 @@
             </div>
             <div class="col-7">
                 <div class="input-group mb-3">
-                    <button class="btn btn-outline-info btn-sm" @click="copyUrl(address)">Copy
+                    <button class="btn btn-outline-info btn-sm" @click="copyUrl(address)">Copy address
                     </button>
                     <transition v-if="depletedUrl" name="fade" :duration="1000">
                         <button type="button"  data-bs-toggle="tooltip" data-bs-placement="top"
@@ -109,7 +109,7 @@ Get a new address!">
                     <input type="text" v-model="address" class="form-control">
                 </div>
                 <div class="input-group mb-2">
-                    <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln)">Copy
+                    <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln)">Copy payload
                     </button>
                     <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split"
                             data-bs-toggle="dropdown" aria-expanded="false">
@@ -137,7 +137,7 @@ Get a new address!">
             </div>
 
         </div>
-        <div class="row">
+        <div class="row" id="export-table">
             <div class="">
                 <h2>Detected name lookups</h2>
                 <span class="visually-hidden">${vuln1}</span>
