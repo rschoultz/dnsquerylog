@@ -2,6 +2,7 @@ package servers
 
 import (
 	"crypto/tls"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,25 +11,29 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"time"
 )
 
 const wsPath = "/wsConnection"
 
+//go:embed content/index.html
+var indexHtml string
+var homeTemplate = template.Must(template.New("").Parse(indexHtml))
+
 var wsProtocol = "wss"
-var addr = flag.String("addr", "0.0.0.0:80", "http service address")
-var indexhtml *template.Template
 var upgrader = websocket.Upgrader{} // use default options
 
-func wsConnection(w http.ResponseWriter, r *http.Request) {
+func wsConnection(w http.ResponseWriter, r *http.Request, domain string) {
 
 	id := uuid.New()
 	idString := id.String()
-	checkAddr := fmt.Sprintf("%s.check.dnsquery.tech", idString)
+	checkAddr := fmt.Sprintf("%s.check."+domain, idString)
 	subscriber := idString
+	requesterIp := r.RemoteAddr
 
-	log.Printf("Upgrading to Websocket listener for id: %s\n", id)
+	log.Printf("Upgrading to Websocket listener for ip:%s id: %s\n", requesterIp, id)
 
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -36,8 +41,9 @@ func wsConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
+		log.Printf("Closing Websocket ip:%s id: %s\n", requesterIp, id)
 		RemoveSubscriber(subscriber)
-		c.Close()
+		_ = c.Close()
 	}()
 
 	go func(ws *websocket.Conn) {
@@ -47,11 +53,11 @@ func wsConnection(w http.ResponseWriter, r *http.Request) {
 			Time: time.Now().Format(time.RFC3339),
 		}
 		jsonMessage, _ := json.Marshal(newAddress)
-		ws.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
+		_ = ws.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
 		for {
 			if _, _, err := ws.NextReader(); err != nil {
 				RemoveSubscriber(subscriber)
-				ws.Close()
+				_ = ws.Close()
 				break
 			}
 		}
@@ -69,15 +75,17 @@ func wsConnection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func ServeWebServers(isLocal bool, homeTemplate *template.Template) {
-
-	indexhtml = homeTemplate
+func ServeWebServers(isLocal bool, domain string) (err error) {
 
 	if isLocal {
 		wsProtocol = "ws"
-		httpHandlers()
-		go http.ListenAndServe("0.0.0.0:http", nil)
-		return
+		httpHandlers(domain)
+		log.Printf("Starting http server.")
+		go func() error {
+			err = http.ListenAndServe(":http", nil)
+			return err
+		}()
+		return nil
 	}
 
 	go func() {
@@ -86,32 +94,56 @@ func ServeWebServers(isLocal bool, homeTemplate *template.Template) {
 
 		certManager := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist("dnsquery.tech", "check.dnsquery.tech", "n2.dnsquery.tech", "view.dnsquery.tech"),
+			HostPolicy: autocert.HostWhitelist(domain, "check."+domain, "*.check."+domain, "n2."+domain, "view"+domain),
 			Cache:      autocert.DirCache("certs"),
 		}
 
+		log.Printf("Starting https server.")
 		httpsServer := &http.Server{
-			Addr: "0.0.0.0:https",
+			Addr: ":https",
 			TLSConfig: &tls.Config{
 				GetCertificate: certManager.GetCertificate,
 			},
 		}
 
-		httpHandlers()
+		httpHandlers(domain)
 
-		go http.ListenAndServe("0.0.0.0:http", certManager.HTTPHandler(nil))
+		log.Printf("Starting http server.")
+		go func() error {
+			err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			return nil
+		}()
 		log.Fatal(httpsServer.ListenAndServeTLS("", ""))
 	}()
+	return nil
 }
 
-func httpHandlers() {
-	http.HandleFunc(wsPath, wsConnection)
+func httpHandlers(domain string) {
 	http.HandleFunc("/", home)
+	http.HandleFunc(wsPath, myHttpHandler(domain))
+
+}
+
+func myHttpHandler(domain string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		wsConnection(w, r, domain)
+	}
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
 
-	err := indexhtml.Execute(w, wsProtocol+"://"+r.Host+wsPath)
+	ctx := r.Context()
+
+	srvAddr := ctx.Value(http.LocalAddrContextKey).(net.Addr)
+	fmt.Println(r.Host)
+	fmt.Println(r.Proto)
+	fmt.Println(srvAddr)
+
+	err := homeTemplate.Execute(w, wsProtocol+"://"+r.Host+wsPath)
 	if err != nil {
 		log.Fatal(err)
 		return

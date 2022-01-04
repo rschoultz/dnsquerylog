@@ -15,25 +15,24 @@ type Message struct {
 	Protocol    string
 }
 
-var things = make(map[string]chan string)
+var subscribers = make(map[string]chan string)
 
 func RegisterSubscriber(key string) chan string {
-	things[key] = make(chan string, 10)
+	subscribers[key] = make(chan string, 10)
 
-	return things[key]
+	return subscribers[key]
 }
 
 func RemoveSubscriber(key string) {
 	log.Printf("Removing subscriber %s\n", key)
-	delete(things, key)
+	delete(subscribers, key)
 }
 
 func MessageToSubscriber(key string, message Message) bool {
-
 	msg, _ := json.Marshal(message)
 
 	select {
-	case things[key] <- string(msg):
+	case subscribers[key] <- string(msg):
 		// log.Printf("Message sent for key:%s", key)
 		return true
 	default:
