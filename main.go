@@ -1,65 +1,21 @@
 package main
 
 import (
+	listen "dnsquerylog/cmd"
 	_ "embed"
-	"github.com/urfave/cli/v2"
-	"html/template"
+	"flag"
 	"log"
-	"os"
-	"sync"
-
-	"dnsquerylog/servers"
 )
 
-//go:embed content/index.html
-var indexhtml string
-
-var homeTemplate = template.Must(template.New("").Parse(indexhtml))
-
-var isLocal = false
-
 func main() {
+	var isLocal bool
+	var domain string
+	defaultDomain := "dnsquery.tech"
 
-	app := &cli.App{}
-	app.Copyright = "Copyright 2021, Worldline"
-	app.Name = "dnsquerylog"
-	app.Usage = ""
-	app.HideVersion = true
-	app.EnableBashCompletion = true
-	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name:        "local",
-			Value:       false,
-			Usage:       "Local server for testing.",
-			Destination: &isLocal,
-			Required:    false,
-		},
-	}
-
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	wg := new(sync.WaitGroup)
-	wg.Add(3)
-
-	go func() {
-		err := servers.ServeUdpNs("53", err)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-	}()
-
-	go func() {
-		servers.ServeTcpNs("53", err)
-	}()
-
-	go func() {
-		servers.ServeWebServers(isLocal, homeTemplate)
-	}()
-
-	wg.Wait()
+	flag.BoolVar(&isLocal, "local", false, "Local will not open a https port, only http.")
+	flag.StringVar(&domain, "domain", defaultDomain, "Domain name operated by this service. Default: "+defaultDomain)
+	flag.Parse()
+	log.Printf("Is running locally, without TLS : %v\n", isLocal)
+	_ = listen.StartServers(isLocal, domain)
 
 }
