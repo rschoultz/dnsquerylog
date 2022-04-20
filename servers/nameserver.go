@@ -1,6 +1,7 @@
 package servers
 
 import (
+	"dnsquerylog/conf"
 	"fmt"
 	"github.com/miekg/dns"
 	"log"
@@ -9,25 +10,6 @@ import (
 	"strings"
 	"time"
 )
-
-// FIXME: Only halfway through in fixing hard coded stuff
-const defaultARecord = "*.check."
-const ttl = "30"
-
-var DEBUG = false
-
-var aRecords = map[string]string{
-	"n2.":      "35.217.6.93",
-	"*.check.": "35.217.6.93",
-}
-
-var nsRecords = map[string]string{
-	"check.": "n2.",
-}
-
-var soaRecords = map[string]string{
-	"check.": "300 IN SOA n2.DOMAIN. hostmaster.DOMAIN. 1 21600 3600 259200 300",
-}
 
 func parseQuery(m *dns.Msg, requester net.Addr, domain string) {
 	currentTime := time.Now().Format(time.RFC3339)
@@ -38,7 +20,7 @@ func parseQuery(m *dns.Msg, requester net.Addr, domain string) {
 
 		lookupString := strings.Replace(q.Name, domain+".", "", 1)
 
-		if DEBUG {
+		if conf.DEBUG {
 			log.Printf("lookupstring:%s, name:%s, qtype:%s, qclass:%s, subscriber:%s\n", lookupString, q.Name, q.Qtype, q.Qclass, subscriber)
 		}
 
@@ -69,23 +51,23 @@ func parseQuery(m *dns.Msg, requester net.Addr, domain string) {
 		}
 
 		//TODO: Remove this - we don't want sensitive data being logged.
-		log.Printf("%s LOOKUP by:%s wss:%t using:%s (%s) for:%s got additional: %s\n",
-			currentTime, requesterIp, !subscriberListened, subscriber, dns.TypeToString[q.Qtype], lookupString, exfiltrated)
+		log.Printf("%s LOOKUP by:%s wss view active:%t using:%s (%s) for:%s got additional: %s\n",
+			currentTime, requesterIp, subscriberListened, subscriber, dns.TypeToString[q.Qtype], lookupString, exfiltrated)
 
 		switch q.Qtype {
 		case dns.TypeA:
-			ip := aRecords[lookupString]
+			ip := conf.ARecordPrefixes[lookupString]
 			if ip == "" {
-				ip = aRecords[defaultARecord]
+				ip = conf.ARecordPrefixes[conf.DefaultARecord]
 			}
-			aRecord := fmt.Sprintf("%s %s IN A %s", q.Name, ttl, ip)
+			aRecord := fmt.Sprintf("%s %s IN A %s", q.Name, conf.Ttl, ip)
 			rr, err := dns.NewRR(aRecord)
 			if err == nil {
 				m.Answer = append(m.Answer, rr)
 				m.Authoritative = true
 			}
 		case dns.TypeNS:
-			ns := nsRecords[lookupString]
+			ns := conf.NsRecordPrefixes[lookupString]
 			if ns != "" {
 				rr, err := dns.NewRR(fmt.Sprintf("%s NS %s", q.Name, ns+domain+"."))
 				if err == nil {
@@ -95,7 +77,7 @@ func parseQuery(m *dns.Msg, requester net.Addr, domain string) {
 			}
 		case dns.TypeSOA:
 			inspect("SOA lookup for", lookupString)
-			soa := soaRecords[lookupString]
+			soa := conf.SoaRecordPrefixes[lookupString]
 			if soa != "" {
 				soaRR := fmt.Sprintf("%s %s", q.Name, soa)
 				domainSoaRR := strings.Replace(soaRR, "DOMAIN", domain, -1)
@@ -131,6 +113,9 @@ func dnsHandlerWithDomain(domain string) dns.HandlerFunc {
 
 func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg, domain string) {
 
+	inspect("Domain", domain)
+	inspect(r)
+
 	defer func(w dns.ResponseWriter) {
 		_ = w.Close()
 	}(w)
@@ -151,13 +136,12 @@ func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg, domain string) {
 		log.Println(err)
 		return
 	}
-
 }
 
 func ServeTcpNs(nsPort string, domain string) error {
 	dns.HandleFunc(domain+".", dnsHandlerWithDomain(domain))
 
-	log.Printf("Starting TCP ns at %s\n", nsPort)
+	log.Printf("Starting tcp ns at port %s for %s", nsPort, domain)
 	serverTcp := &dns.Server{Addr: ":" + nsPort, Net: "tcp"}
 	err := serverTcp.ListenAndServe()
 	defer func(serverTcp *dns.Server) {
@@ -172,7 +156,7 @@ func ServeTcpNs(nsPort string, domain string) error {
 func ServeUdpNs(nsPort string, domain string) error {
 	dns.HandleFunc(domain+".", dnsHandlerWithDomain(domain))
 
-	log.Printf("Starting UDP ns at %s\n", nsPort)
+	log.Printf("Starting udp ns at port %s for %s", nsPort, domain)
 	serverUdp := &dns.Server{Addr: ":" + nsPort, Net: "udp"}
 	err := serverUdp.ListenAndServe()
 	defer func(serverUdp *dns.Server) {
@@ -185,7 +169,7 @@ func ServeUdpNs(nsPort string, domain string) error {
 }
 
 func inspect(v ...interface{}) {
-	if DEBUG {
+	if conf.DEBUG {
 		fmt.Println(">>> Inspecting:")
 		for _, v := range v {
 			fmt.Printf("%T %#v \n", v, v)

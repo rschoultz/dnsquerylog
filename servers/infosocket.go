@@ -2,6 +2,7 @@ package servers
 
 import (
 	"crypto/tls"
+	conf "dnsquerylog/conf"
 	_ "embed"
 	"encoding/json"
 	"flag"
@@ -16,8 +17,6 @@ import (
 	"time"
 )
 
-const wsPath = "/wsConnection"
-
 //go:embed content/index.html
 var indexHtml string
 var homeTemplate = template.Must(template.New("").Parse(indexHtml))
@@ -29,7 +28,7 @@ func wsConnection(w http.ResponseWriter, r *http.Request, domain string) {
 
 	id := uuid.New()
 	idString := id.String()
-	checkAddr := fmt.Sprintf("%s.check."+domain, idString)
+	checkAddr := fmt.Sprintf("%s.%s.%s", idString, conf.CheckDomain, domain)
 	subscriber := idString
 	requesterIp := r.RemoteAddr
 
@@ -93,9 +92,12 @@ func ServeWebServers(isLocal bool, domain string) (err error) {
 		log.SetFlags(0)
 
 		certManager := autocert.Manager{
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(domain, "check."+domain, "*.check."+domain, "n2."+domain, "view"+domain),
-			Cache:      autocert.DirCache("certs"),
+			Prompt: autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(domain, conf.CheckDomain+"."+domain,
+				"*."+conf.CheckDomain+"."+domain,
+				"n2."+domain,
+				conf.WebsiteHostName+domain),
+			Cache: autocert.DirCache("certs"),
 		}
 
 		log.Printf("Starting https server.")
@@ -124,7 +126,7 @@ func ServeWebServers(isLocal bool, domain string) (err error) {
 
 func httpHandlers(domain string) {
 	http.HandleFunc("/", home)
-	http.HandleFunc(wsPath, myHttpHandler(domain))
+	http.HandleFunc(conf.WsPath, myHttpHandler(domain))
 
 }
 
@@ -143,7 +145,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.Proto)
 	fmt.Println(srvAddr)
 
-	err := homeTemplate.Execute(w, wsProtocol+"://"+r.Host+wsPath)
+	err := homeTemplate.Execute(w, wsProtocol+"://"+r.Host+conf.WsPath)
 	if err != nil {
 		log.Fatal(err)
 		return
