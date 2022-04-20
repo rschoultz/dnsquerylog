@@ -3,7 +3,7 @@
 Detect DNS lookups by providing a new, unique FQDN or the FQDN embedded in a string that is
 known to trigger Log4J < 2.16 to cause a lookup of the IP address.
 
-Author: Rickard Schoultz, 2021-2022
+Author: Rickard Schoultz, December 2021
 
 ## Animated 30 second demo
 ![Animated demo](docs/view-dnsquery-tech.gif)
@@ -14,7 +14,7 @@ In order to run this service, a number of requirements has to be met.
 
 **1. Two public IPv4 address**. The service requires delegation. As this server will 
 act as an authoritative name server for the domain, an IP address is needed to register
-for this purpose. Many registries does not allow for a single IP, so two addresses are
+for this purpose. Many registries do not allow for a single IP, so two addresses are
 likely needed.
 
 **2. A domain name**, preferably a second level domain, e.g. *dnsquery.tech*. 
@@ -30,6 +30,11 @@ likely needed.
 
 **4. Disk Storage**. The service is using Letsencrypt to acquire a certificate, and requires a directory
 to store the key material.
+
+# Usage
+
+Modify conf/config.go to reflect the IP address of where you intend to run the service.
+
 
 # Disclaimer
 
